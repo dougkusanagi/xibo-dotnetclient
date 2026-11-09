@@ -1554,9 +1554,7 @@ namespace XiboClient
         {
             var screens = Screen.AllScreens;
             var deviceName = MonitorSelector.GetDeviceName(
-                ApplicationSettings.Default.MonitorSelection,
-                Screen.PrimaryScreen?.DeviceName,
-                screens.Where(screen => !screen.Primary).Select(screen => screen.DeviceName));
+                ApplicationSettings.Default.MonitorSelection, WindowsMonitorInventory.GetMonitors());
             var screen = screens.FirstOrDefault(item => item.DeviceName == deviceName);
             if (screen == null)
                 return false;

@@ -35,13 +35,18 @@ Both `XiboClient.XmlSerializers.dll` and `Xibo.scr` must be Authenticode-signed 
 
 ## Monitor selection (fork)
 
-This fork accepts `monitorSelection` from the companion [CMS fork](https://github.com/dougkusanagi/xibo-cms/tree/feature/windows-monitor-selection), under the Windows profile's **Location** tab, or as a per-display setting override:
+This fork reports all connected Windows desktop monitors through the authenticated XMDS `NotifyStatus` request. Each report includes a monitor ID, name, Windows device name, primary flag and physical desktop bounds. The companion [CMS fork](https://github.com/dougkusanagi/xibo-cms/tree/feature/windows-monitor-selection) stores the latest report and its reception time.
 
-- `default`: keep the existing window size and coordinates (the upgrade default).
+To choose any monitor, including the third or fourth, edit the **Display**, open **Settings**, override **Player monitor**, choose the reported monitor, then Apply and Save. Shared Windows profiles still offer role-based defaults:
+
+- `default`: keep existing manual window size and coordinates.
 - `primary`: fill the Windows primary monitor.
-- `secondary`: fill the first non-primary monitor by Windows device name, sorted ordinally without case sensitivity. Fall back to the primary if none is connected.
+- `secondary`: fill the first non-primary monitor by Windows device name, sorted ordinally without case sensitivity.
+- `monitor:<64 lowercase hex digits>`: fill the monitor with that reported identity.
 
-Explicit monitor choices override window size/coordinates without deleting them. The player saves the setting in its existing library configuration. Wait for it to receive the CMS setting, then restart it. Disconnecting/reconnecting a monitor re-evaluates the preference. This is a role choice, not a binding to a physical screen.
+Explicit choices override size/coordinates without deleting them. The player saves the selection in its library configuration. Wait for it to receive the CMS setting, then restart it. If the chosen monitor is absent, the player uses the primary without changing the saved choice; display-configuration events resolve the choice again when monitors return. Use Windows **Extend** mode for independently selectable screens; duplicated screens share one desktop area.
+
+Monitor IDs hash the Windows monitor interface path, so a DISPLAY number change alone does not change the ID. If Windows cannot provide that interface, the GDI device name is used instead. Changing ports or drivers may change Windows's identity; with the GDI fallback, renumbering may also require choosing the monitor again.
 
 Build on Windows using Visual Studio 2019+ with the .NET desktop workload: open `XiboClient.sln`, restore packages, then build `Release|x86`. Follow the deployment requirements above; this branch does not provide a compiled installer.
 
@@ -51,7 +56,7 @@ Run the isolated selection regression tests with PowerShell 7 (no package depend
 pwsh -NoProfile -File tests/monitor-selection.ps1
 ```
 
-These tests cover default behavior, ordering, disconnect/reconnect and primary changes. They do not validate WPF or Win32 positioning. Before distributing a build, check Windows startup and restart with monitors on either side, negative desktop coordinates, portrait orientation, different scaling (100%/150%), a disconnected secondary, and reconnection. Confirm that legacy manual positioning still works when `default` is selected.
+These tests cover three monitors, each specific choice, reordering, fallback, disconnect/reconnect, primary changes and identity normalization. They do not validate WPF or Win32 APIs. Before distributing a build, verify Windows startup/restart with three real screens, negative desktop coordinates, portrait orientation, mixed scaling (100%/150%), disconnect/reconnect and legacy manual positioning. Confirm that the CMS receives and persists the monitor report and that selecting the third screen places playback there.
 
 ## Licence
 

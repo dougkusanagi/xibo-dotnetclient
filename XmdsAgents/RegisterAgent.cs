@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Xibo - Digital Signage - http://www.xibo.org.uk
  * Copyright (C) 2024 Xibo Signage Ltd
  *
@@ -341,6 +341,42 @@ namespace XiboClient.XmdsAgents
                 writer.WriteValue(ClientInfo.Instance.PlayerWidth);
                 writer.WritePropertyName("height");
                 writer.WriteValue(ClientInfo.Instance.PlayerHeight);
+
+                // A failed hardware query must not erase the CMS's last known inventory.
+                // Collect before opening the JSON array so an error cannot corrupt the report.
+                try
+                {
+                    var monitors = WindowsMonitorInventory.GetMonitors();
+                    writer.WritePropertyName("monitors");
+                    writer.WriteStartArray();
+                    foreach (var monitor in monitors)
+                    {
+                        writer.WriteStartObject();
+                        writer.WritePropertyName("id");
+                        writer.WriteValue(monitor.Id);
+                        writer.WritePropertyName("name");
+                        writer.WriteValue(monitor.Name);
+                        writer.WritePropertyName("deviceName");
+                        writer.WriteValue(monitor.DeviceName);
+                        writer.WritePropertyName("isPrimary");
+                        writer.WriteValue(monitor.IsPrimary);
+                        writer.WritePropertyName("width");
+                        writer.WriteValue(monitor.Width);
+                        writer.WritePropertyName("height");
+                        writer.WriteValue(monitor.Height);
+                        writer.WritePropertyName("left");
+                        writer.WriteValue(monitor.Left);
+                        writer.WritePropertyName("top");
+                        writer.WriteValue(monitor.Top);
+                        writer.WriteEndObject();
+                    }
+                    writer.WriteEndArray();
+                }
+                catch (Exception exception)
+                {
+                    Trace.WriteLine(new LogMessage("NotifyStatus", "Unable to query monitors: "
+                        + exception.Message), LogType.Info.ToString());
+                }
 
                 // GeoLocation
                 if (ClientInfo.Instance.CurrentGeoLocation != null && !ClientInfo.Instance.CurrentGeoLocation.IsUnknown)

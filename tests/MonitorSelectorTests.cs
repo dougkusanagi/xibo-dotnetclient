@@ -18,20 +18,32 @@ namespace XiboClient.Tests
 
         public static void Run()
         {
-            var secondary = new[] { "DISPLAY3", "DISPLAY2" };
-            Equal(null, MonitorSelector.GetDeviceName(null, "DISPLAY1", secondary));
-            Equal(null, MonitorSelector.GetDeviceName("default", "DISPLAY1", secondary));
-            Equal(null, MonitorSelector.GetDeviceName("unknown", "DISPLAY1", secondary));
-            Equal("DISPLAY1", MonitorSelector.GetDeviceName("primary", "DISPLAY1", secondary));
-            Equal("DISPLAY2", MonitorSelector.GetDeviceName("secondary", "DISPLAY1", secondary));
-            // Enumeration order changes must not change which secondary is selected.
-            Equal("DISPLAY2", MonitorSelector.GetDeviceName("secondary", "DISPLAY1",
-                new[] { "DISPLAY2", "DISPLAY3" }));
-            // Disconnect, reconnect, and a different primary after reboot.
-            Equal("DISPLAY1", MonitorSelector.GetDeviceName("secondary", "DISPLAY1", new string[0]));
-            Equal("DISPLAY2", MonitorSelector.GetDeviceName("secondary", "DISPLAY1", new[] { "DISPLAY2" }));
-            Equal("DISPLAY1", MonitorSelector.GetDeviceName("secondary", "DISPLAY2", new[] { "DISPLAY1" }));
-            Equal(null, MonitorSelector.GetDeviceName("secondary", null, new string[0]));
+            var one = new MonitorDescriptor { Id = MonitorSelector.CreateId("interface:one"), DeviceName = "DISPLAY1", IsPrimary = true };
+            var two = new MonitorDescriptor { Id = MonitorSelector.CreateId("interface:two"), DeviceName = "DISPLAY2" };
+            var three = new MonitorDescriptor { Id = MonitorSelector.CreateId("interface:three"), DeviceName = "DISPLAY3" };
+            var monitors = new[] { three, one, two };
+            Equal(null, MonitorSelector.GetDeviceName(null, monitors));
+            Equal(null, MonitorSelector.GetDeviceName("default", monitors));
+            Equal(null, MonitorSelector.GetDeviceName("unknown", monitors));
+            Equal("DISPLAY1", MonitorSelector.GetDeviceName("primary", monitors));
+            Equal("DISPLAY2", MonitorSelector.GetDeviceName("secondary", monitors));
+            Equal("DISPLAY1", MonitorSelector.GetDeviceName(one.Id, monitors));
+            Equal("DISPLAY2", MonitorSelector.GetDeviceName(two.Id, monitors));
+            Equal("DISPLAY3", MonitorSelector.GetDeviceName(three.Id, monitors));
+            Equal("DISPLAY3", MonitorSelector.GetDeviceName(three.Id, new[] { two, three, one }));
+            // A selected monitor survives disconnect/reconnect and DISPLAY number changes.
+            Equal("DISPLAY1", MonitorSelector.GetDeviceName(three.Id, new[] { one, two }));
+            Equal("DISPLAY3", MonitorSelector.GetDeviceName(three.Id, monitors));
+            three.DeviceName = "DISPLAY7";
+            Equal("DISPLAY7", MonitorSelector.GetDeviceName(three.Id, monitors));
+            one.IsPrimary = false;
+            two.IsPrimary = true;
+            Equal("DISPLAY7", MonitorSelector.GetDeviceName(three.Id, monitors));
+            Equal("DISPLAY2", MonitorSelector.GetDeviceName(three.Id, new[] { one, two }));
+            Equal("DISPLAY1", MonitorSelector.GetDeviceName("secondary", monitors));
+            Equal(null, MonitorSelector.GetDeviceName(three.Id, new MonitorDescriptor[0]));
+            Equal(MonitorSelector.CreateId("interface:ONE"), one.Id);
+            Equal("72", one.Id.Length.ToString());
             Console.WriteLine("Monitor selection: " + assertions + " assertions passed.");
         }
     }

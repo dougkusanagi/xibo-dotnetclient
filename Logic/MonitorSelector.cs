@@ -2,25 +2,39 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace XiboClient.Logic
 {
-    /// <summary>
-    /// Resolve a monitor preference without persisting transient enumeration indexes.
-    /// A null result leaves the existing manual window configuration in control.
-    /// </summary>
     internal static class MonitorSelector
     {
-        internal static string GetDeviceName(string selection, string primaryDeviceName,
-            IEnumerable<string> secondaryDeviceNames)
+        // Windows device interface paths are case-insensitive. Keep their opaque ID
+        // separate from DISPLAY1/DISPLAY2, which may change after a reboot.
+        internal static string CreateId(string identity)
         {
+            using (var hash = SHA256.Create())
+            {
+                return "monitor:" + BitConverter.ToString(hash.ComputeHash(
+                    Encoding.UTF8.GetBytes(identity.ToUpperInvariant()))).Replace("-", "").ToLowerInvariant();
+            }
+        }
+
+        internal static string GetDeviceName(string selection, IEnumerable<MonitorDescriptor> inventory)
+        {
+            var monitors = inventory.ToList();
+            var primary = monitors.FirstOrDefault(monitor => monitor.IsPrimary)?.DeviceName;
+            if (selection != null && selection.StartsWith("monitor:", StringComparison.Ordinal))
+                return monitors.FirstOrDefault(monitor => monitor.Id == selection)?.DeviceName ?? primary;
+
             switch (selection)
             {
                 case "primary":
-                    return primaryDeviceName;
+                    return primary;
                 case "secondary":
-                    return secondaryDeviceNames.OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-                        .FirstOrDefault() ?? primaryDeviceName;
+                    return monitors.Where(monitor => !monitor.IsPrimary)
+                        .OrderBy(monitor => monitor.DeviceName, StringComparer.OrdinalIgnoreCase)
+                        .FirstOrDefault()?.DeviceName ?? primary;
                 default:
                     return null;
             }
