@@ -1,6 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ApplicationSettings>
   <XmdsResetTimeout>900</XmdsResetTimeout>
+  <MonitorSelection>default</MonitorSelection>
   <SizeX>0</SizeX>
   <SizeY>0</SizeY>
   <OffsetX>0</OffsetX>

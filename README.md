@@ -33,6 +33,26 @@ The release package must include the following files alongside `XiboClient.exe`:
 
 Both `XiboClient.XmlSerializers.dll` and `Xibo.scr` must be Authenticode-signed as part of the release pipeline — Smart App Control will block any unsigned PE file in the package.
 
+## Monitor selection (fork)
+
+This fork accepts `monitorSelection` from the companion [CMS fork](https://github.com/dougkusanagi/xibo-cms/tree/feature/windows-monitor-selection), under the Windows profile's **Location** tab, or as a per-display setting override:
+
+- `default`: keep the existing window size and coordinates (the upgrade default).
+- `primary`: fill the Windows primary monitor.
+- `secondary`: fill the first non-primary monitor by Windows device name, sorted ordinally without case sensitivity. Fall back to the primary if none is connected.
+
+Explicit monitor choices override window size/coordinates without deleting them. The player saves the setting in its existing library configuration. Wait for it to receive the CMS setting, then restart it. Disconnecting/reconnecting a monitor re-evaluates the preference. This is a role choice, not a binding to a physical screen.
+
+Build on Windows using Visual Studio 2019+ with the .NET desktop workload: open `XiboClient.sln`, restore packages, then build `Release|x86`. Follow the deployment requirements above; this branch does not provide a compiled installer.
+
+Run the isolated selection regression tests with PowerShell 7 (no package dependencies):
+
+```powershell
+pwsh -NoProfile -File tests/monitor-selection.ps1
+```
+
+These tests cover default behavior, ordering, disconnect/reconnect and primary changes. They do not validate WPF or Win32 positioning. Before distributing a build, check Windows startup and restart with monitors on either side, negative desktop coordinates, portrait orientation, different scaling (100%/150%), a disconnected secondary, and reconnection. Confirm that legacy manual positioning still works when `default` is selected.
+
 ## Licence
 
 Xibo - Digital Signage - https://xibosignage.com - Copyright (C) 2006-2026 Xibo Signage Ltd

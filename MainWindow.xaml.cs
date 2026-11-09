@@ -24,6 +24,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -110,6 +111,11 @@ namespace XiboClient
 
         [DllImport("User32.dll")]
         private static extern bool SetCursorPos(int X, int Y);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetWindowPos(IntPtr window, IntPtr insertAfter,
+            int x, int y, int width, int height, uint flags);
 
         #endregion
 
@@ -1486,8 +1492,14 @@ namespace XiboClient
         /// </summary>
         private void SetMainWindowSize()
         {
-            // Override the default size if necessary
-            if (ApplicationSettings.Default.SizeX != 0 || ApplicationSettings.Default.SizeY != 0)
+            WindowState = WindowState.Normal;
+
+            // An explicit monitor choice takes precedence over legacy size/offset settings.
+            if (TrySetSelectedMonitor())
+            {
+                Debug.WriteLine("SetMainWindowSize: Use Selected Monitor");
+            }
+            else if (ApplicationSettings.Default.SizeX != 0 || ApplicationSettings.Default.SizeY != 0)
             {
                 Debug.WriteLine("SetMainWindowSize: Use Settings Size");
 
@@ -1535,6 +1547,55 @@ namespace XiboClient
         }
 
         /// <summary>
+        /// Fill the selected monitor using physical desktop coordinates. Moving the HWND
+        /// first lets WPF adopt the destination DPI before its logical size is assigned.
+        /// </summary>
+        private bool TrySetSelectedMonitor()
+        {
+            var screens = Screen.AllScreens;
+            var deviceName = MonitorSelector.GetDeviceName(
+                ApplicationSettings.Default.MonitorSelection,
+                Screen.PrimaryScreen?.DeviceName,
+                screens.Where(screen => !screen.Primary).Select(screen => screen.DeviceName));
+            var screen = screens.FirstOrDefault(item => item.DeviceName == deviceName);
+            if (screen == null)
+                return false;
+
+            var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+            var bounds = screen.Bounds;
+            const uint flags = 0x0004 | 0x0010; // SWP_NOZORDER | SWP_NOACTIVATE
+            if (!SetWindowPos(handle, IntPtr.Zero, bounds.Left, bounds.Top,
+                bounds.Width, bounds.Height, flags))
+            {
+                Trace.WriteLine(new LogMessage("SetMainWindowSize",
+                    "Cannot position player on selected monitor. Win32 error: "
+                    + Marshal.GetLastWin32Error()), LogType.Error.ToString());
+                return false;
+            }
+
+            var source = System.Windows.Interop.HwndSource.FromHwnd(handle);
+            if (source?.CompositionTarget != null)
+            {
+                var size = source.CompositionTarget.TransformFromDevice.Transform(
+                    new System.Windows.Vector(bounds.Width, bounds.Height));
+                Width = size.X;
+                Height = size.Y;
+            }
+
+            // WPF width/height changes must not displace the physical monitor origin,
+            // including negative coordinates and monitors with different DPI scales.
+            if (!SetWindowPos(handle, IntPtr.Zero, bounds.Left, bounds.Top,
+                bounds.Width, bounds.Height, flags))
+            {
+                Trace.WriteLine(new LogMessage("SetMainWindowSize",
+                    "Cannot finish positioning player. Win32 error: "
+                    + Marshal.GetLastWin32Error()), LogType.Error.ToString());
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
         /// Display Settings Changed
         /// </summary>
         /// <param name="sender"></param>
@@ -1546,11 +1607,12 @@ namespace XiboClient
                 + SystemParameters.PrimaryScreenWidth.ToString() + ", H="
                 + SystemParameters.PrimaryScreenHeight.ToString()), LogType.Info.ToString());
 
-            // Reassert the size of our client (should resize if necessary)
-            SetMainWindowSize();
-
-            // Yield and restart
-            _schedule.NextLayout();
+            // SystemEvents can run on a worker thread; WPF must be updated on its dispatcher.
+            Dispatcher.BeginInvoke(new System.Action(() =>
+            {
+                SetMainWindowSize();
+                _schedule?.NextLayout();
+            }));
         }
 
         #region Dispose

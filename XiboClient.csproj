@@ -155,6 +155,7 @@
     </Compile>
     <Compile Include="Action\Action.cs" />
     <Compile Include="Logic\ApplicationSettings.cs" />
+    <Compile Include="Logic\MonitorSelector.cs" />
     <Compile Include="Logic\CacheManager.cs" />
     <Compile Include="Logic\Criteria.cs" />
     <Compile Include="Logic\HardwareKey.cs" />

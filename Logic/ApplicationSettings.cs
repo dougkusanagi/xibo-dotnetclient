@@ -367,6 +367,8 @@ namespace XiboClient
         #region "The Settings"
         public int XmdsResetTimeout { get; set; }
 
+        public string MonitorSelection { get; set; } = "default";
+
         public decimal SizeX { get; set; }
         public decimal SizeY { get; set; }
         public decimal OffsetX { get; set; }
